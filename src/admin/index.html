@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🔮 Taro — 塔罗牌 RAG 管理台</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Noto+Serif+SC:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['EB Garamond', 'Noto Serif SC', 'Georgia', 'serif'],
+            sans:  ['Noto Sans SC', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* ── CSS 变量（主题系统）── */
+    :root {
+      /* 深色主题（默认）*/
+      --bg-page:    #0b0b12;
+      --bg-sidebar: #0e0e17;
+      --bg-card:    rgba(22,22,30,0.75);
+      --bg-input:   rgba(18,18,26,0.9);
+      --border:     rgba(255,255,255,0.07);
+      --border-hover: rgba(255,255,255,0.14);
+      --text-1:     #e8e8ed;
+      --text-2:     #9898b0;
+      --text-3:     #5a5a72;
+      --accent:     #a78bfa;
+      --accent-bg:  rgba(167,139,250,0.10);
+      --accent-border: rgba(167,139,250,0.20);
+      --glow:       radial-gradient(ellipse, rgba(167,139,250,0.07) 0%, transparent 68%);
+      --sidebar-border: rgba(255,255,255,0.05);
+      --scrollbar:  rgba(255,255,255,0.10);
+      --option-bg:  #16161e;
+      --shadow:     0 4px 24px rgba(0,0,0,0.35);
+    }
+
+    html.light {
+      --bg-page:    #f8f5ef;
+      --bg-sidebar: #f0ece4;
+      --bg-card:    rgba(255,253,248,0.85);
+      --bg-input:   rgba(255,253,248,0.95);
+      --border:     rgba(0,0,0,0.08);
+      --border-hover: rgba(0,0,0,0.16);
+      --text-1:     #1a1510;
+      --text-2:     #6b604e;
+      --text-3:     #a8927a;
+      --accent:     #7c5cda;
+      --accent-bg:  rgba(124,92,218,0.08);
+      --accent-border: rgba(124,92,218,0.18);
+      --glow:       radial-gradient(ellipse, rgba(124,92,218,0.06) 0%, transparent 68%);
+      --sidebar-border: rgba(0,0,0,0.08);
+      --scrollbar:  rgba(0,0,0,0.12);
+      --option-bg:  #f8f5ef;
+      --shadow:     0 4px 24px rgba(0,0,0,0.10);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-page);
+      color: var(--text-1);
+      font-family: 'EB Garamond', 'Noto Serif SC', Georgia, serif;
+      font-size: 17px;
+      line-height: 1.7;
+      min-height: 100vh;
+      transition: background 0.25s, color 0.25s;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; top: -30%; left: 50%;
+      transform: translateX(-50%);
+      width: 900px; height: 600px;
+      background: var(--glow);
+      pointer-events: none; z-index: 0;
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      transition: background 0.25s, border-color 0.25s;
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 18px; border-radius: 9px;
+      font-size: 15px; font-weight: 500;
+      font-family: 'Noto Sans SC', system-ui, sans-serif;
+      border: 1px solid var(--border-hover);
+      background: var(--bg-card);
+      color: var(--text-1); cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn:hover { background: var(--accent-bg); border-color: var(--accent-border); }
+    .btn-primary { background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; }
+    .btn-primary:hover { filter: brightness(1.12); }
+    .btn-danger {
+      background: rgba(239,68,68,0.10) !important;
+      border-color: rgba(239,68,68,0.25) !important;
+      color: #f87171 !important;
+    }
+    .btn-danger:hover { background: rgba(239,68,68,0.18) !important; }
+
+    input, textarea, select {
+      background: var(--bg-input) !important;
+      border: 1px solid var(--border-hover) !important;
+      border-radius: 9px;
+      color: var(--text-1) !important;
+      font-family: 'Noto Sans SC', system-ui, sans-serif;
+      font-size: 15px;
+      transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px var(--accent-bg) !important;
+    }
+    select option { background: var(--option-bg); color: var(--text-1); }
+
+    .tag {
+      display: inline-block; padding: 2px 10px; border-radius: 6px;
+      font-size: 12px; font-weight: 500;
+      font-family: 'Noto Sans SC', system-ui, sans-serif;
+      background: var(--accent-bg); color: var(--accent);
+      border: 1px solid var(--accent-border);
+    }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 9px;
+      font-size: 15px; font-weight: 400;
+      font-family: 'Noto Sans SC', system-ui, sans-serif;
+      color: var(--text-2); cursor: pointer; transition: all 0.15s;
+    }
+    .nav-item:hover { background: var(--accent-bg); color: var(--text-1); }
+    .nav-item.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; border: 1px solid var(--accent-border); }
+
+    .chat-bubble-user {
+      background: var(--accent-bg);
+      border: 1px solid var(--accent-border);
+      border-radius: 14px 14px 4px 14px;
+    }
+    .chat-bubble-ai {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px 14px 14px 4px;
+    }
+
+    .stat-card { position: relative; overflow: hidden; }
+    .stat-card::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0.4;
+    }
+
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid var(--accent-bg);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .toast {
+      position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+      padding: 13px 22px; border-radius: 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--accent-border);
+      color: var(--text-1); font-size: 15px; font-weight: 500;
+      font-family: 'Noto Sans SC', system-ui, sans-serif;
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow);
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; }
+
+    pre { white-space: pre-wrap; word-break: break-word; font-family: inherit; }
+
+    .source-item {
+      padding: 12px 16px; border-radius: 10px;
+      background: var(--accent-bg);
+      border: 1px solid var(--accent-border);
+      margin-bottom: 8px;
+    }
+
+    /* 主题切换按钮 */
+    .theme-toggle {
+      width: 36px; height: 36px; border-radius: 8px;
+      border: 1px solid var(--border-hover);
+      background: var(--bg-card);
+      color: var(--text-2); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; transition: all 0.15s;
+    }
+    .theme-toggle:hover { background: var(--accent-bg); border-color: var(--accent-border); }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const API_BASE = 'http://localhost:8000';
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API_BASE + path, {
+    headers: { 'Content-Type': 'application/json', ...opts.headers },
+    ...opts,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || res.statusText);
+  }
+  return res.json();
+}
+
+function useToast() {
+  const [toast, setToast] = useState(null);
+  const show = useCallback((msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 2800);
+  }, []);
+  return { toast, show };
+}
+
+function Toast({ toast }) {
+  if (!toast) return null;
+  const icon = toast.type === 'error' ? '✗' : '✓';
+  return (
+    <div className="toast" style={{ borderColor: toast.type === 'error' ? 'rgba(239,68,68,0.35)' : 'rgba(167,139,250,0.25)' }}>
+      <span style={{ marginRight: 8 }}>{icon}</span>{toast.msg}
+    </div>
+  );
+}
+
+function Spinner() {
+  return <div className="spinner" />;
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────
+
+const NAV_ITEMS = [
+  { id: 'chat',     icon: '◎', label: '智能问答' },
+  { id: 'overview', icon: '◈', label: '知识库概览' },
+  { id: 'search',   icon: '◐', label: '知识检索' },
+  { id: 'add',      icon: '＋', label: '添加知识' },
+  { id: 'manage',   icon: '▤', label: '知识管理' },
+  { id: 'index',    icon: '↺', label: '索引维护' },
+];
+
+function Sidebar({ page, setPage, config, theme, toggleTheme }) {
+  return (
+    <aside style={{
+      width: 232, minHeight: '100vh', flexShrink: 0,
+      background: 'var(--bg-sidebar)',
+      borderRight: '1px solid var(--sidebar-border)',
+      display: 'flex', flexDirection: 'column', padding: '24px 12px',
+      position: 'sticky', top: 0, zIndex: 10,
+    }}>
+      {/* Brand + theme toggle */}
+      <div style={{ padding: '0 4px 20px', marginBottom: 8, borderBottom: '1px solid var(--sidebar-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-1)' }}>
+            <span style={{ fontSize: 22 }}>🔮</span> Taro
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4 }}>塔罗牌 RAG 知识库</div>
+        </div>
+        <button className="theme-toggle" onClick={toggleTheme} title={theme === 'dark' ? '切换到浅色' : '切换到深色'}>
+          {theme === 'dark' ? '☀' : '☾'}
+        </button>
+      </div>
+
+      {/* Nav */}
+      <nav style={{ flex: 1 }}>
+        {NAV_ITEMS.map(item => (
+          <div key={item.id} className={`nav-item ${page === item.id ? 'active' : ''}`} onClick={() => setPage(item.id)}>
+            <span style={{ fontSize: 15, width: 20, textAlign: 'center', opacity: 0.75 }}>{item.icon}</span>
+            {item.label}
+          </div>
+        ))}
+      </nav>
+
+      {/* Config */}
+      {config && (
+        <div style={{
+          padding: '13px 15px', borderRadius: 10, marginTop: 16,
+          background: 'var(--accent-bg)', border: '1px solid var(--accent-border)',
+        }}>
+          <div style={{ fontSize: 11, color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: 9, textTransform: 'uppercase' }}>配置</div>
+          {[
+            ['LLM', config.llm_model],
+            ['Embed', config.embedding_model],
+          ].map(([k, v]) => (
+            <div key={k} style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 2.1 }}>
+              {k} <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{v}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </aside>
+  );
+}
+
+// ── Page: Overview ─────────────────────────────────────────────────────────
+
+const T = { // text style helpers
+  h1: { fontSize: 26, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.01em', color: 'var(--text-1)' },
+  sub: { color: 'var(--text-3)', fontSize: 15, marginBottom: 28 },
+  label: { fontSize: 12, color: 'var(--text-3)', letterSpacing: '0.05em', textTransform: 'uppercase' },
+};
+
+function PageOverview({ showToast }) {
+  const [stats, setStats] = useState(null);
+  const [files, setFiles] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      apiFetch('/stats'),
+      apiFetch('/knowledge-files').catch(() => ({})),
+    ]).then(([s, f]) => { setStats(s); setFiles(f); }).catch(e => showToast(e.message, 'error')).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 32 }}><Spinner /><span style={{ color: 'var(--text-2)', fontSize: 16 }}>加载中...</span></div>;
+
+  const maxChunks = stats ? Math.max(...Object.values(stats.categories || {}), 1) : 1;
+
+  return (
+    <div>
+      <h1 style={T.h1}>知识库概览</h1>
+      <p style={T.sub}>向量库实时统计</p>
+
+      {stats && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 28 }}>
+            {[
+              { label: 'Chunk 总数', value: stats.total_chunks, sub: '向量片段' },
+              { label: '知识文件', value: stats.total_files, sub: '个 Markdown' },
+              { label: '向量数据库', value: 'ChromaDB', sub: '本地持久化' },
+            ].map(({ label, value, sub }) => (
+              <div key={label} className="card stat-card" style={{ padding: '22px 24px' }}>
+                <div style={{ ...T.label, marginBottom: 10 }}>{label}</div>
+                <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-1)' }}>{value}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-3)', marginTop: 5 }}>{sub}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="card" style={{ padding: '24px 26px', marginBottom: 24 }}>
+            <div style={{ ...T.label, marginBottom: 18 }}>分类分布</div>
+            {Object.entries(stats.categories || {}).sort((a, b) => b[1] - a[1]).map(([cat, cnt]) => (
+              <div key={cat} style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 14, color: 'var(--text-2)' }}>{cat}</span>
+                  <span style={{ fontSize: 14, color: 'var(--accent)', fontWeight: 600 }}>{cnt}</span>
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${(cnt / maxChunks) * 100}%` }} />
+                </div>
+              </div>
+            ))}
+            {Object.keys(stats.categories || {}).length === 0 && (
+              <div style={{ color: 'var(--text-3)', fontSize: 15 }}>知识库为空，请先运行索引构建</div>
+            )}
+          </div>
+        </>
+      )}
+
+      <div className="card" style={{ padding: '24px 26px' }}>
+        <div style={{ ...T.label, marginBottom: 18 }}>知识文件目录</div>
+        {Object.keys(files).length > 0 ? Object.entries(files).map(([dir, fileList]) => (
+          <details key={dir} style={{ marginBottom: 10 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 15, color: 'var(--text-2)', padding: '7px 0', userSelect: 'none' }}>
+              <span style={{ color: 'var(--accent)', marginRight: 8 }}>▸</span>
+              {dir} <span style={{ color: 'var(--text-3)', marginLeft: 6 }}>({fileList.length} 个文件)</span>
+            </summary>
+            <div style={{ paddingLeft: 22, paddingTop: 6 }}>
+              {fileList.map(f => (
+                <div key={f} style={{ fontSize: 13, color: 'var(--text-3)', lineHeight: 2.1, fontFamily: 'monospace' }}>{f}</div>
+              ))}
+            </div>
+          </details>
+        )) : <div style={{ color: 'var(--text-3)', fontSize: 15 }}>无法获取文件列表</div>}
+      </div>
+    </div>
+  );
+}
+
+// ── Page: Chat ─────────────────────────────────────────────────────────────
+
+function PageChat({ showToast }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [category, setCategory] = useState('');
+  const [topK, setTopK] = useState(5);
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  const send = async () => {
+    if (!input.trim() || loading) return;
+    const q = input.trim();
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', content: q }]);
+    setLoading(true);
+    try {
+      const res = await apiFetch('/query', {
+        method: 'POST',
+        body: JSON.stringify({ question: q, top_k: topK, category: category || null }),
+      });
+      setMessages(prev => [...prev, { role: 'assistant', content: res.answer, sources: res.sources }]);
+    } catch (e) {
+      showToast(e.message, 'error');
+      setMessages(prev => [...prev, { role: 'assistant', content: `❌ 出错了：${e.message}`, sources: [] }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendFeedback = async (question, answer, rating) => {
+    try {
+      await apiFetch('/feedback', {
+        method: 'POST',
+        body: JSON.stringify({ question, answer, rating }),
+      });
+      showToast(rating === 'like' ? '感谢反馈！🙏' : '感谢，我们会改进！');
+    } catch {}
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 48px)' }}>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={T.h1}>智能问答</h1>
+        <p style={T.sub}>基于塔罗牌 RAG 知识库的专业解读</p>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4, marginBottom: 16 }}>
+        {messages.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-3)' }}>
+            <div style={{ fontSize: 44, marginBottom: 16 }}>🔮</div>
+            <div style={{ fontSize: 17 }}>问我任何关于塔罗牌的问题</div>
+            <div style={{ fontSize: 14, marginTop: 8 }}>例如：愚者牌逆位代表什么？凯尔特十字牌阵怎么用？</div>
+          </div>
+        )}
+
+        {messages.map((msg, i) => (
+          <div key={i} style={{ marginBottom: 18, display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+            <div style={{ maxWidth: '82%' }}>
+              <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 5, textAlign: msg.role === 'user' ? 'right' : 'left' }}>
+                {msg.role === 'user' ? '你' : '🔮 Taro'}
+              </div>
+              <div className={`chat-bubble-${msg.role === 'user' ? 'user' : 'ai'}`} style={{ padding: '14px 18px', fontSize: 16, lineHeight: 1.8 }}>
+                <pre style={{ fontFamily: 'inherit' }}>{msg.content}</pre>
+              </div>
+              {msg.sources && msg.sources.length > 0 && (
+                <details style={{ marginTop: 9 }}>
+                  <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text-2)', userSelect: 'none' }}>
+                    📚 参考来源 ({msg.sources.length})
+                  </summary>
+                  <div style={{ marginTop: 8 }}>
+                    {msg.sources.map((s, j) => (
+                      <div key={j} className="source-item">
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>{s.name || s.metadata?.name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>
+                          {s.category || s.metadata?.category} · 相关度 {((s.score || 0) * 100).toFixed(0)}%
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+              {msg.role === 'assistant' && (
+                <div style={{ display: 'flex', gap: 6, marginTop: 9 }}>
+                  {[['like','👍','有帮助'], ['dislike','👎','不够好']].map(([r, emoji, label]) => (
+                    <button key={r} className="btn" style={{ fontSize: 13, padding: '5px 12px' }}
+                      onClick={() => sendFeedback(messages[i-1]?.content, msg.content, r)}>
+                      {emoji} {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div style={{ display: 'flex', gap: 12, padding: '12px 0', alignItems: 'center' }}>
+            <Spinner />
+            <span style={{ color: 'var(--text-2)', fontSize: 15 }}>正在翻阅塔罗知识库...</span>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="card" style={{ padding: '12px 16px' }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+          {[{ id: '', label: '全部' }, { id: 'major_arcana', label: '大阿卡纳' }, { id: 'minor_arcana', label: '小阿卡纳' }, { id: 'spread', label: '牌阵' }, { id: 'history', label: '历史' }, { id: 'elements', label: '元素' }].map(({ id, label }) => (
+            <button key={id} onClick={() => setCategory(id)} style={{
+              padding: '3px 10px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
+              fontFamily: "'Noto Sans SC', sans-serif",
+              border: '1px solid ' + (category === id ? 'var(--accent)' : 'var(--border-hover)'),
+              background: category === id ? 'var(--accent-bg)' : 'transparent',
+              color: category === id ? 'var(--accent)' : 'var(--text-3)',
+              transition: 'all 0.15s',
+            }}>{label}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+            placeholder="请输入你的塔罗问题…（Enter 发送，Shift+Enter 换行）"
+            style={{ flex: 1, padding: '11px 15px', resize: 'none', height: 48, lineHeight: 1.5 }}
+            rows={1}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: "'Noto Sans SC', sans-serif" }}>Top-K</span>
+            <input
+              type="number" min={1} max={20} value={topK}
+              onChange={e => setTopK(Math.max(1, Math.min(20, Number(e.target.value))))}
+              style={{ width: 48, padding: '4px 6px', textAlign: 'center', fontSize: 13 }}
+            />
+          </div>
+          <button className="btn btn-primary" onClick={send} disabled={loading} style={{ whiteSpace: 'nowrap', alignSelf: 'flex-end' }}>
+            {loading ? <Spinner /> : '发送'}
+          </button>
+        </div>
+        {messages.length > 0 && (
+          <button className="btn" style={{ fontSize: 13, marginTop: 9, padding: '5px 14px', color: 'var(--text-3)' }}
+            onClick={() => setMessages([])}>清空对话</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Page: Search ───────────────────────────────────────────────────────────
+
+function PageSearch({ showToast }) {
+  const [query, setQuery] = useState('');
+  const [topK, setTopK] = useState(8);
+  const [cat, setCat] = useState('');
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const search = async () => {
+    if (!query.trim()) return;
+    setLoading(true); setResults(null);
+    try {
+      const res = await apiFetch(`/search?q=${encodeURIComponent(query)}&top_k=${topK}${cat ? `&category=${cat}` : ''}`);
+      setResults(res.results);
+    } catch (e) { showToast(e.message, 'error'); } finally { setLoading(false); }
+  };
+
+  return (
+    <div>
+      <h1 style={T.h1}>知识检索</h1>
+      <p style={T.sub}>直接搜索向量库，验证入库质量（不调用 LLM）</p>
+
+      <div className="card" style={{ padding: '22px 24px', marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <input value={query} onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && search()}
+            placeholder="搜索关键词，例如：权杖国王、凯尔特十字"
+            style={{ flex: 1, padding: '10px 15px', minWidth: 200 }} />
+          <select value={topK} onChange={e => setTopK(Number(e.target.value))}
+            style={{ padding: '10px 13px', width: 95 }}>
+            {[5,8,12,20,30].map(n => <option key={n} value={n}>{n} 条</option>)}
+          </select>
+          <select value={cat} onChange={e => setCat(e.target.value)}
+            style={{ padding: '10px 13px', width: 140 }}>
+            <option value="">全部分类</option>
+            {['major_arcana','minor_arcana','spread','history','elements'].map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          <button className="btn btn-primary" onClick={search} disabled={loading}>
+            {loading ? <Spinner /> : '搜索'}
+          </button>
+        </div>
+      </div>
+
+      {results && (
+        <div>
+          <div style={{ fontSize: 15, color: 'var(--text-2)', marginBottom: 14 }}>
+            找到 <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{results.length}</span> 条结果
+          </div>
+          {results.map((doc, i) => {
+            const meta = doc.metadata || {};
+            return (
+              <div key={i} className="card" style={{ padding: '20px 22px', marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                  <div>
+                    <span style={{ fontSize: 14, color: 'var(--text-3)', marginRight: 8 }}>#{i+1}</span>
+                    <span style={{ fontSize: 17, fontWeight: 600, color: 'var(--text-1)' }}>{meta.name || '未知'}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={{ fontSize: 14, color: 'var(--accent)', fontWeight: 600 }}>
+                      {((doc.score || 0) * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+                {meta.source_file && (
+                  <div style={{ fontSize: 12, color: 'var(--text-3)', fontFamily: 'monospace', marginBottom: 10 }}>
+                    {meta.source_file} · chunk {(meta.chunk_index || 0) + 1}/{meta.total_chunks || '?'}
+                  </div>
+                )}
+                <div style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.9, maxHeight: 130, overflowY: 'auto' }}>
+                  {doc.document}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Page: Add ──────────────────────────────────────────────────────────────
+
+function PageAdd({ showToast }) {
+  const [name, setName] = useState('');
+  const [category, setCategory] = useState('custom');
+  const [content, setContent] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const submit = async () => {
+    if (!name.trim() || !content.trim()) { showToast('名称和内容不能为空', 'error'); return; }
+    setLoading(true); setResult(null);
+    try {
+      const res = await apiFetch('/add-document', {
+        method: 'POST',
+        body: JSON.stringify({ name: name.trim(), category, content: content.trim() }),
+      });
+      setResult(res);
+      showToast(`✅ 已添加 ${res.chunks} 个 chunk`);
+      setName(''); setContent('');
+    } catch (e) { showToast(e.message, 'error'); } finally { setLoading(false); }
+  };
+
+  return (
+    <div>
+      <h1 style={T.h1}>添加知识</h1>
+      <p style={T.sub}>添加内容会保存为 Markdown 文件（knowledge/custom/）并自动入库</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div className="card" style={{ padding: '24px 26px' }}>
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ ...T.label, display: 'block', marginBottom: 8 }}>条目名称 *</label>
+            <input value={name} onChange={e => setName(e.target.value)}
+              placeholder="例如：圣杯骑士详解"
+              style={{ width: '100%', padding: '10px 15px' }} />
+          </div>
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ ...T.label, display: 'block', marginBottom: 8 }}>分类 *</label>
+            <select value={category} onChange={e => setCategory(e.target.value)}
+              style={{ width: '100%', padding: '10px 15px' }}>
+              {['custom','history','elements','spread'].map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div style={{ marginBottom: 22 }}>
+            <label style={{ ...T.label, display: 'block', marginBottom: 8 }}>内容（支持 Markdown）*</label>
+            <textarea value={content} onChange={e => setContent(e.target.value)}
+              placeholder={'# 标题\n\n## 正文\n...'}
+              style={{ width: '100%', padding: '11px 15px', height: 320, resize: 'vertical' }} />
+          </div>
+          <button className="btn btn-primary" onClick={submit} disabled={loading} style={{ width: '100%', justifyContent: 'center', padding: '11px 0' }}>
+            {loading ? <><Spinner /><span>保存中...</span></> : '💾 保存并入库'}
+          </button>
+          {result && (
+            <div style={{ marginTop: 16, padding: '13px 16px', borderRadius: 9, background: 'var(--accent-bg)', border: '1px solid var(--accent-border)' }}>
+              <div style={{ fontSize: 14, color: 'var(--accent)', marginBottom: 5 }}>✅ 添加成功</div>
+              <div style={{ fontSize: 13, color: 'var(--text-2)' }}>写入 {result.chunks} 个 chunk · 文件：{result.file}</div>
+            </div>
+          )}
+        </div>
+
+        <div className="card" style={{ padding: '24px 26px' }}>
+          <div style={{ ...T.label, marginBottom: 16 }}>预览</div>
+          {content ? (
+            <div style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.9, whiteSpace: 'pre-wrap', maxHeight: 500, overflowY: 'auto' }}>
+              {content}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--text-3)', fontSize: 15, textAlign: 'center', padding: '60px 0' }}>在左侧输入内容后预览</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Page: Manage ───────────────────────────────────────────────────────────
+
+function PageManage({ showToast }) {
+  const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState({});
+
+  const load = () => {
+    setLoading(true);
+    apiFetch('/custom-documents')
+      .then(setFiles)
+      .catch(e => showToast(e.message, 'error'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  const save = async (id, content) => {
+    setSaving(s => ({ ...s, [id]: true }));
+    try {
+      await apiFetch('/update-document', { method: 'POST', body: JSON.stringify({ id, content }) });
+      showToast('✅ 保存并重新入库');
+    } catch (e) { showToast(e.message, 'error'); } finally { setSaving(s => ({ ...s, [id]: false })); }
+  };
+
+  const del = async (id) => {
+    if (!confirm(`确认删除 "${id}"？`)) return;
+    try {
+      await apiFetch(`/delete-document/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      showToast('已删除');
+      load();
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+
+  return (
+    <div>
+      <h1 style={T.h1}>知识管理</h1>
+      <p style={T.sub}>仅限编辑 custom/ 目录下的自定义条目</p>
+
+      {loading && <div style={{ display: 'flex', gap: 12, alignItems: 'center', color: 'var(--text-2)', fontSize: 15 }}><Spinner /> 加载中...</div>}
+
+      {!loading && files.length === 0 && (
+        <div className="card" style={{ padding: 36, textAlign: 'center', color: 'var(--text-3)', fontSize: 15 }}>
+          暂无自定义知识条目，请先在「添加知识」页面添加内容。
+        </div>
+      )}
+
+      {files.map(f => (
+        <FileEditor key={f.id} file={f} onSave={save} onDelete={del} saving={saving[f.id]} />
+      ))}
+    </div>
+  );
+}
+
+function FileEditor({ file, onSave, onDelete, saving }) {
+  const [content, setContent] = useState(file.content);
+  return (
+    <div className="card" style={{ padding: '20px 22px', marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div>
+          <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-1)' }}>{file.id}</span>
+          <span className="tag" style={{ marginLeft: 8 }}>custom</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-danger" onClick={() => onDelete(file.id)}>删除</button>
+          <button className="btn btn-primary" onClick={() => onSave(file.id, content)} disabled={saving}>
+            {saving ? <><Spinner /><span>保存中...</span></> : '💾 保存'}
+          </button>
+        </div>
+      </div>
+      <textarea value={content} onChange={e => setContent(e.target.value)}
+        style={{ width: '100%', padding: '11px 15px', fontSize: 13, height: 240, resize: 'vertical', fontFamily: 'monospace' }} />
+    </div>
+  );
+}
+
+// ── Page: Index ────────────────────────────────────────────────────────────
+
+function PageIndex({ showToast }) {
+  const [updating, setUpdating] = useState(false);
+  const [rebuilding, setRebuilding] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [updateResult, setUpdateResult] = useState(null);
+  const [rebuildResult, setRebuildResult] = useState(null);
+
+  const runUpdate = async () => {
+    setUpdating(true); setUpdateResult(null);
+    try {
+      const res = await apiFetch('/update', { method: 'POST' });
+      setUpdateResult(res);
+      showToast(`✅ 更新完成 · 新增 ${res.added} 变更 ${res.changed} 文件`);
+    } catch (e) { showToast(e.message, 'error'); } finally { setUpdating(false); }
+  };
+
+  const runRebuild = async () => {
+    if (!confirm) { showToast('请先勾选确认', 'error'); return; }
+    setRebuilding(true); setRebuildResult(null);
+    try {
+      const res = await apiFetch('/rebuild', { method: 'POST' });
+      setRebuildResult(res);
+      showToast(`✅ 全量重建完成 · ${res.files} 文件 ${res.chunks} chunk`);
+    } catch (e) { showToast(e.message, 'error'); } finally { setRebuilding(false); setConfirm(false); }
+  };
+
+  const ResultBox = ({ res }) => res ? (
+    <div style={{ marginTop: 14, padding: '13px 17px', borderRadius: 9, background: 'var(--accent-bg)', border: '1px solid var(--accent-border)' }}>
+      {Object.entries(res).filter(([k]) => k !== 'status').map(([k, v]) => (
+        <span key={k} style={{ fontSize: 14, color: 'var(--text-2)', marginRight: 18 }}>
+          {k} <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{v}</span>
+        </span>
+      ))}
+    </div>
+  ) : null;
+
+  return (
+    <div>
+      <h1 style={T.h1}>索引维护</h1>
+      <p style={T.sub}>管理向量库的更新与重建</p>
+
+      <div className="card" style={{ padding: '24px 26px', marginBottom: 16 }}>
+        <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 7, color: 'var(--text-1)' }}>⚡ 增量更新（推荐）</div>
+        <div style={{ fontSize: 15, color: 'var(--text-2)', marginBottom: 18 }}>检测 knowledge/ 目录变更文件，仅重新入库变更部分，速度快</div>
+        <button className="btn btn-primary" onClick={runUpdate} disabled={updating}>
+          {updating ? <><Spinner /><span>更新中...</span></> : '⚡ 运行增量更新'}
+        </button>
+        <ResultBox res={updateResult} />
+      </div>
+
+      <div className="card" style={{ padding: '24px 26px' }}>
+        <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 7, color: '#f87171' }}>🔄 全量重建</div>
+        <div style={{ fontSize: 15, color: 'var(--text-2)', marginBottom: 18 }}>清空并重建整个向量库。知识文件较多时会消耗较多时间和 API 调用额度。</div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', marginBottom: 16 }}>
+          <input type="checkbox" checked={confirm} onChange={e => setConfirm(e.target.checked)} style={{ accentColor: 'var(--accent)', width: 16, height: 16 }} />
+          <span style={{ fontSize: 15, color: 'var(--text-2)' }}>我确认要清空并重建整个向量索引</span>
+        </label>
+        <button className="btn btn-danger" onClick={runRebuild} disabled={rebuilding || !confirm}>
+          {rebuilding ? <><Spinner /><span>重建中...</span></> : '🔄 执行全量重建'}
+        </button>
+        <ResultBox res={rebuildResult} />
+      </div>
+
+      <div className="card" style={{ padding: '24px 26px', marginTop: 16 }}>
+        <div style={{ ...T.label, marginBottom: 16 }}>维护说明</div>
+        {[
+          ['修改内置牌义', '编辑 knowledge/major_arcana/ 或 minor_arcana/ 下的 .md 文件，然后运行增量更新'],
+          ['添加新内容', '在「添加知识」页面填写，会自动保存文件并入库'],
+          ['批量添加', '在 knowledge/ 对应子目录新建 .md 文件，然后运行增量更新'],
+          ['定期维护', '建议每次修改知识文件后都运行一次增量更新'],
+        ].map(([t, d]) => (
+          <div key={t} style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', minWidth: 100 }}>{t}</div>
+            <div style={{ fontSize: 15, color: 'var(--text-2)', lineHeight: 1.8 }}>{d}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── App ────────────────────────────────────────────────────────────────────
+
+function App() {
+  const [page, setPage] = useState('chat');
+  const [appConfig, setAppConfig] = useState(null);
+  const { toast, show: showToast } = useToast();
+
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('taro-theme');
+    return saved || 'dark';
+  });
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+    }
+    localStorage.setItem('taro-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(t => t === 'dark' ? 'light' : 'dark');
+  }, []);
+
+  useEffect(() => {
+    apiFetch('/config').then(setAppConfig).catch(() => {});
+  }, []);
+
+  const pages = {
+    overview: <PageOverview showToast={showToast} />,
+    chat:     <PageChat showToast={showToast} />,
+    search:   <PageSearch showToast={showToast} />,
+    add:      <PageAdd showToast={showToast} />,
+    manage:   <PageManage showToast={showToast} />,
+    index:    <PageIndex showToast={showToast} />,
+  };
+
+  return (
+    <div style={{ display: 'flex', position: 'relative', zIndex: 1 }}>
+      <Sidebar page={page} setPage={setPage} config={appConfig} theme={theme} toggleTheme={toggleTheme} />
+      <main style={{ flex: 1, padding: '32px 44px', maxWidth: 960, minHeight: '100vh' }}>
+        {pages[page]}
+      </main>
+      <Toast toast={toast} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

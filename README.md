@@ -1,4 +1,4 @@
-# 🔮 Taro — 塔罗牌 RAG 智能知识库
+# 🔮 Tarot — 塔罗牌 RAG 智能知识库
 
 基于 **DeepSeek + ChromaDB + FastAPI + React** 构建的塔罗牌智能问答与知识管理系统。
 
